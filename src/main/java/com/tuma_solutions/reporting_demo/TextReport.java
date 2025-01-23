@@ -51,10 +51,14 @@ public abstract class TextReport {
 
     private void printValues(Object... values) {
         for (int i = 0; i < values.length; i++) {
-            if (i > 0)
+            if (i > 0 && !isEmptyKeyedData(values[i]))
                 printDelimiter();
             printValue(values[i]);
         }
+    }
+
+    private boolean isEmptyKeyedData(Object value) {
+        return value instanceof KeyedData && ((KeyedData) value).isEmpty();
     }
 
     protected abstract void printDelimiter();

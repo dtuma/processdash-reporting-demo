@@ -27,6 +27,10 @@ public class KeyedData {
         return (result == null ? 0 : result);
     }
 
+    public boolean isEmpty() {
+        return keyNames.isEmpty();
+    }
+
     public List<Double> asList() {
         List result = new ArrayList();
         for (String oneKey : keyNames) {
