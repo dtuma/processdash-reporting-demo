@@ -26,7 +26,7 @@ public abstract class DataLoader {
 
             // if we find an applicable report row, save the query data into it
             if (reportRow != null)
-                storeQueryData(row, reportRow);
+                storeQueryData(reportRows, ctx, reportRowKey, row, reportRow);
         }
     }
 
@@ -40,6 +40,11 @@ public abstract class DataLoader {
         return new Object[0];
     }
 
+    protected void storeQueryData(Map reportRows, PDashContext ctx,
+            String reportRowKey, Object[] rawData, ReportDataRow dest) {
+        storeQueryData(rawData, dest);
+    }
+
     public abstract void storeQueryData(Object[] rawData, ReportDataRow dest);
 
 
@@ -50,11 +55,28 @@ public abstract class DataLoader {
 
         @Override
         public String getHQL() {
-            return "SELECT pi.project.key, pi.wbsElement.key, "
-                    + "pi.project.name, pi.wbsElement.name "
+            return "SELECT pi.project.key, " //
+                    + "case pi.leafComponent when 1 " //
+                    + "     then pi.wbsElement.key " //
+                    + "     else 0 end, " //
+                    + "pi.project.name, pi.wbsElement.name, pi.key "
                     + "FROM PlanItem as pi " //
-                    + "WHERE pi.leafComponent = 1 "
-                    + "ORDER BY pi.wbsElement.name";
+                    + "WHERE ? = coalesce(pi.parent.key, -1) "
+                    + "AND pi.task is null "
+                    + "ORDER BY pi.project.key, pi.ordinal";
+        }
+
+        private ThreadLocal<Integer> parentKey = new ThreadLocal<Integer>();
+
+        public Object[] getArgs(PDashContext ctx) {
+            Integer key = parentKey.get();
+            if (key == null)
+                key = -1;
+            return new Object[] { key };
+        }
+
+        private boolean isLeafComponent(String reportRowKey) {
+            return !reportRowKey.endsWith(":0");
         }
 
         @Override
@@ -64,8 +86,28 @@ public abstract class DataLoader {
             // the loading sequence, so it creates the report rows that the
             // remaining loaders will store data into.
             ReportDataRow result = new ReportDataRow();
-            rows.put(key, result);
+            if (isLeafComponent(key))
+                rows.put(key, result);
             return result;
+        }
+
+        @Override
+        protected void storeQueryData(Map reportRows, PDashContext ctx,
+                String key, Object[] rawData, ReportDataRow dest) {
+            if (isLeafComponent(key)) {
+                // if this is a leaf component, it will form a row in the
+                // final report. Store project/wbs names for display
+                storeQueryData(rawData, dest);
+            } else {
+                // for parent components, recurse and find children
+                Integer savedParent = parentKey.get();
+                try {
+                    parentKey.set((Integer) rawData[4]);
+                    load(reportRows, ctx);
+                } finally {
+                    parentKey.set(savedParent);
+                }
+            }
         }
 
         @Override
