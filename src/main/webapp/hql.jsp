@@ -40,13 +40,13 @@ Enter an HQL Query:<br/>
 <pre><c:out value="${queryException.message}"/></pre>
 </c:when>
 
-<c:when test="${empty results}">
+<c:when test="${(empty results) and (empty param.EXPORT)}">
 <p><i>No items found</i></p>
 </c:when>
 
 <c:otherwise>
 
-<table>
+<table id="results">
 
 <c:forEach items="${results}" var="row">
 <tr>
@@ -69,6 +69,15 @@ Enter an HQL Query:<br/>
 
 </c:otherwise>
 </c:choose>
+
+
+<c:url value="/hql.jsp" var="selfUri">
+<c:param name="q" value="${param.q}"/>
+</c:url>
+<c:url value="excel.iqy" var="exportUri">
+<c:param name="uri" value="${selfUri}"/>
+</c:url>
+<div><p><a href="/reports/${exportUri}">Export to Excel</a></p></div>
 
 
 <%--
